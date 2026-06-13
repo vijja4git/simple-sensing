@@ -1,0 +1,434 @@
+#include "MS51_16K.h"
+#include <stdint.h>
+
+// If your MS51_16K.h does not already define P03, keep this line.
+// P0.3 = Fault LED enable/disable DIP input
+__sbit __at(0x80 + 3) P03;
+
+// ======================================================
+// MS51FB9AE NAMUR SENSOR TEST - 5V REF + DIP REVERSE + FAULT MASK
+//
+// INPUT:
+//     Pin 6  -> P1.7 -> ADC_CH0
+//
+// OUTPUTS:
+//     Pin 15 -> P1.0 -> Main output LED
+//     Pin 13 -> P1.2 -> Fault LED
+//
+// DIP SWITCHES:
+//     P0.0 -> NO/NC reverse mode
+//     P0.3 -> Fault LED enable/disable
+//
+// DIP WIRING ASSUMPTION:
+//     4.7k pull-up to VDD
+//     DIP switch connects input pin to GND
+//
+//     DIP open  -> pin reads 1
+//     DIP closed -> pin reads 0
+//
+// BEHAVIOR:
+//
+// P0.0 reverse DIP:
+//     P0.0 = 1 -> Normal / NO mode
+//     P0.0 = 0 -> Reverse / NC mode
+//
+// P0.3 fault mask DIP:
+//     P0.3 = 1 -> Fault LED enabled
+//     P0.3 = 0 -> Fault LED disabled/masked
+//
+// Fault behavior does NOT affect NO/NC mode:
+//     Sensor not connected -> Main LED OFF, Fault LED ON solid if enabled
+//     Short circuit        -> Main LED OFF, Fault LED BLINK if enabled
+//
+// Assumption:
+//     VREF = 5.0V
+//     12-bit ADC = 0 to 4095
+// ======================================================
+
+
+// ======================================================
+// ADC THRESHOLDS FOR 5V REFERENCE
+//
+// ADC count = (Voltage / 5.0V) * 4095
+//
+// Sensor not connected:
+//     0.00V - 0.02V
+//     0 - 16 counts
+//
+// Sensing object:
+//     0.03V - 0.55V
+//     25 - 450 counts
+//
+// Sensor connected, not sensing:
+//     0.55V - below 1.50V
+//     451 - 1228 counts
+//
+// Short circuit:
+//     >= 1.50V
+//     >= 1229 counts
+// ======================================================
+
+#define ADC_BREAK_MAX            16U
+
+#define ADC_SENSE_MIN            25U
+#define ADC_SENSE_MAX            450U
+
+#define ADC_CONNECTED_MIN        451U
+#define ADC_CONNECTED_MAX        1228U
+
+#define ADC_SHORT_MIN            1229U
+
+#define ADC_WINDOW_SAMPLES       16U
+
+// Fault blink speed.
+// Higher value = slower blink.
+// Lower value = faster blink.
+#define FAULT_BLINK_WINDOWS      80U
+
+#define LED_ON                   1U
+#define LED_OFF                  0U
+
+#define REVERSE_MODE_ON          1U
+#define REVERSE_MODE_OFF         0U
+
+#define FAULT_LED_ENABLED        1U
+#define FAULT_LED_DISABLED       0U
+
+
+static uint16_t adc_avg = 0U;
+
+
+// ======================================================
+// SMALL LOOP DELAY
+// ======================================================
+
+void delay_loop_small(void)
+{
+    unsigned int i;
+
+    for (i = 0; i < 300; i++)
+    {
+        __asm__("nop");
+    }
+}
+
+
+// ======================================================
+// GPIO INIT
+// ======================================================
+
+void gpio_init(void)
+{
+    // P1.0 / Pin 15 = main output LED
+    P1M1 &= ~(1U << 0);
+    P1M2 |=  (1U << 0);
+
+    // P1.2 / Pin 13 = fault LED
+    P1M1 &= ~(1U << 2);
+    P1M2 |=  (1U << 2);
+
+    // P1.7 / Pin 6 = ADC input
+    P1M1 |=  (1U << 7);
+    P1M2 &= ~(1U << 7);
+
+    // P0.0 = NO/NC reverse DIP input
+    P0M1 |=  (1U << 0);
+    P0M2 &= ~(1U << 0);
+
+    // P0.3 = fault LED enable/disable DIP input
+    P0M1 |=  (1U << 3);
+    P0M2 &= ~(1U << 3);
+
+    // Disable digital input buffer on ADC_CH0
+    AINDIDS |= 0x01U;
+
+    P10 = LED_OFF;
+    P12 = LED_OFF;
+}
+
+
+// ======================================================
+// ADC INIT
+// ======================================================
+
+void adc_init(void)
+{
+    // Enable ADC
+    ADCCON1 |= 0x01U;
+
+    // Clear ADC complete flag
+    ADCCON0 &= ~0x80U;
+}
+
+
+// ======================================================
+// READ ADC CHANNEL 0
+// ======================================================
+
+uint16_t read_adc_ch0(void)
+{
+    uint16_t result;
+
+    // Select ADC channel 0
+    ADCCON0 &= 0xF0U;
+    ADCCON0 |= 0x00U;
+
+    // Real conversion
+    ADCCON0 &= ~0x80U;
+    ADCCON0 |=  0x40U;
+
+    while ((ADCCON0 & 0x80U) == 0U)
+    {
+    }
+
+    result = ((uint16_t)ADCRH << 4) |
+             (ADCRL & 0x0FU);
+
+    return result;
+}
+
+
+// ======================================================
+// READ AVERAGED ADC VALUE
+// ======================================================
+
+void read_adc_average(void)
+{
+    uint8_t i;
+    uint16_t sample;
+    uint16_t sum;
+
+    sum = 0U;
+
+    for (i = 0; i < ADC_WINDOW_SAMPLES; i++)
+    {
+        sample = read_adc_ch0();
+        sum += sample;
+    }
+
+    adc_avg = sum / ADC_WINDOW_SAMPLES;
+}
+
+
+// ======================================================
+// DIP SWITCH READS
+// ======================================================
+
+uint8_t reverse_mode_enabled(void)
+{
+    // Active-low DIP:
+    // P00 = 1 -> Normal / NO mode
+    // P00 = 0 -> Reverse / NC mode
+
+    if (P00 == 0U)
+    {
+        return REVERSE_MODE_ON;
+    }
+
+    return REVERSE_MODE_OFF;
+}
+
+
+uint8_t fault_led_enabled(void)
+{
+    // Active-low DIP:
+    // P03 = 1 -> Fault LED enabled
+    // P03 = 0 -> Fault LED disabled/masked
+
+    if (P03 == 0U)
+    {
+        return FAULT_LED_DISABLED;
+    }
+
+    return FAULT_LED_ENABLED;
+}
+
+
+// ======================================================
+// CONDITION CHECKS
+// ======================================================
+
+uint8_t sensor_break_detected(void)
+{
+    if (adc_avg <= ADC_BREAK_MAX)
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+
+uint8_t object_detected(void)
+{
+    if ((adc_avg >= ADC_SENSE_MIN) &&
+        (adc_avg <= ADC_SENSE_MAX))
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+
+uint8_t sensor_connected_not_sensing(void)
+{
+    if ((adc_avg >= ADC_CONNECTED_MIN) &&
+        (adc_avg <= ADC_CONNECTED_MAX))
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+
+uint8_t short_circuit_detected(void)
+{
+    if (adc_avg >= ADC_SHORT_MIN)
+    {
+        return 1U;
+    }
+
+    return 0U;
+}
+
+
+// ======================================================
+// MAIN OUTPUT LED CONTROL
+// ======================================================
+
+void update_sensor_led(void)
+{
+    uint8_t reverse_mode;
+
+    reverse_mode = reverse_mode_enabled();
+
+    // Faults always dominate.
+    // NO/NC does NOT affect break or short circuit.
+    if (short_circuit_detected() != 0U)
+    {
+        P10 = LED_OFF;
+    }
+    else if (sensor_break_detected() != 0U)
+    {
+        P10 = LED_OFF;
+    }
+    else if (object_detected() != 0U)
+    {
+        if (reverse_mode != 0U)
+        {
+            // NC mode: object detected -> output OFF
+            P10 = LED_OFF;
+        }
+        else
+        {
+            // NO mode: object detected -> output ON
+            P10 = LED_ON;
+        }
+    }
+    else if (sensor_connected_not_sensing() != 0U)
+    {
+        if (reverse_mode != 0U)
+        {
+            // NC mode: object not detected -> output ON
+            P10 = LED_ON;
+        }
+        else
+        {
+            // NO mode: object not detected -> output OFF
+            P10 = LED_OFF;
+        }
+    }
+    else
+    {
+        // Unknown transition gaps:
+        // Main output OFF for safety.
+        P10 = LED_OFF;
+    }
+}
+
+
+// ======================================================
+// FAULT LED CONTROL
+// ======================================================
+
+void update_fault_led(void)
+{
+    static uint8_t fault_blink_state = LED_OFF;
+    static uint8_t fault_blink_count = 0U;
+
+    // Fault LED mask has highest priority for P1.2 only.
+    // It does NOT change main sensor output behavior.
+    if (fault_led_enabled() == FAULT_LED_DISABLED)
+    {
+        fault_blink_count = 0U;
+        fault_blink_state = LED_OFF;
+        P12 = LED_OFF;
+        return;
+    }
+
+    if (short_circuit_detected() != 0U)
+    {
+        // Short circuit: blink fault LED
+        if (fault_blink_count < FAULT_BLINK_WINDOWS)
+        {
+            fault_blink_count++;
+        }
+        else
+        {
+            fault_blink_count = 0U;
+
+            if (fault_blink_state == LED_OFF)
+            {
+                fault_blink_state = LED_ON;
+            }
+            else
+            {
+                fault_blink_state = LED_OFF;
+            }
+        }
+
+        P12 = fault_blink_state;
+    }
+    else if (sensor_break_detected() != 0U)
+    {
+        // Sensor not connected / break: fault LED solid ON
+        fault_blink_count = 0U;
+        fault_blink_state = LED_OFF;
+
+        P12 = LED_ON;
+    }
+    else
+    {
+        // Normal operation: fault LED OFF
+        fault_blink_count = 0U;
+        fault_blink_state = LED_OFF;
+
+        P12 = LED_OFF;
+    }
+}
+
+
+// ======================================================
+// MAIN
+// ======================================================
+
+void main(void)
+{
+    gpio_init();
+    adc_init();
+
+    P10 = LED_OFF;
+    P12 = LED_OFF;
+
+    while (1)
+    {
+        read_adc_average();
+
+        update_sensor_led();
+        update_fault_led();
+
+        delay_loop_small();
+    }
+}
