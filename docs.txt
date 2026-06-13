@@ -1,0 +1,704 @@
+
+
+MS51FB9AE DUAL-CHANNEL NAMUR SENSOR CONTROLLER
+Implementation and Hardware Configuration Guide
+
+============================================================
+1. PROJECT PURPOSE
+============================================================
+
+This project implements a dual-channel NAMUR sensor interface using the
+MS51FB9AE microcontroller.
+
+Each sensor channel provides:
+
+- One analog sensor input
+- One sensing/output LED
+- One fault LED
+- One dedicated NO/NC mode DIP switch
+
+The board also includes one common DIP switch that enables or disables both
+fault LEDs.
+
+The firmware classifies each sensor input into one of four states:
+
+1. Sensor disconnected / wire break
+2. Sensor connected but not detecting an object
+3. Sensor detecting an object
+4. Short circuit
+
+The two sensor channels work independently. A fault on one channel does not
+change the normal output of the other channel.
+
+
+============================================================
+2. MICROCONTROLLER AND BUILD ENVIRONMENT
+============================================================
+
+Microcontroller:
+
+- Nuvoton MS51FB9AE
+- 8-bit 8051-compatible MCU
+- Internal high-speed oscillator is used
+- No external crystal is required by the firmware
+
+Compiler and tools:
+
+- SDCC compiler
+- Target: MCS-51 / 8051
+- packihx for HEX file generation
+
+Typical build commands:
+
+make clean
+make
+
+Expected HEX output:
+
+build/main.hex
+
+Flash the generated HEX file into APROM using the Nuvoton ICP/ISP programmer.
+Do not select a 16-bit target mode. The MS51 is an 8-bit MCU.
+
+
+============================================================
+3. FINAL PIN ASSIGNMENT
+============================================================
+
+CHANNEL 1
+
+- Analog input:       P1.7 / ADC_CH0
+- Sensing output LED: P1.0 / P10
+- Fault LED:          P1.2 / P12
+- NO/NC DIP switch:   P0.0 / P00
+
+CHANNEL 2
+
+- Analog input:       P3.0 / ADC_CH1
+- Sensing output LED: P1.1 / P11
+- Fault LED:          P1.3 / P13
+- NO/NC DIP switch:   P0.1 / P01
+
+COMMON CONTROL
+
+- Fault LED enable/disable DIP: P0.3 / P03
+
+
+============================================================
+4. WHY P3.0 IS USED FOR CHANNEL 2 INPUT
+============================================================
+
+P1.6 was originally considered for the second sensor input, but P1.6 is not
+an ADC-capable pin on the MS51FB9AE.
+
+P3.0 supports ADC_CH1 and is therefore used as the second analog input.
+
+Because the firmware uses the internal oscillator, P3.0 is available for this
+ADC function.
+
+
+============================================================
+5. HEADER FILE REQUIREMENTS
+============================================================
+
+The minimal MS51_16K.h file must contain the required SFR definitions for:
+
+- P0, P1, P3
+- P0M1, P0M2
+- P1M1, P1M2
+- P3M1, P3M2
+- ADCCON0, ADCCON1
+- ADCRH, ADCRL
+- AINDIDS
+- P00, P01
+- P10, P11, P12
+
+The following aliases are also required:
+
+__sbit __at(0x80 + 3) P03;
+__sbit __at(0x90 + 3) P13;
+
+These definitions may be placed either in MS51_16K.h or in main.c, but not in
+both places. Duplicate definitions will cause compiler errors.
+
+
+============================================================
+6. GPIO CONFIGURATION
+============================================================
+
+The following pins are configured as push-pull outputs:
+
+- P1.0: Channel 1 sensing output LED
+- P1.1: Channel 2 sensing output LED
+- P1.2: Channel 1 fault LED
+- P1.3: Channel 2 fault LED
+
+The following pins are configured as input-only:
+
+- P1.7: Channel 1 ADC input
+- P3.0: Channel 2 ADC input
+- P0.0: Channel 1 NO/NC DIP
+- P0.1: Channel 2 NO/NC DIP
+- P0.3: Common fault LED enable DIP
+
+The digital input buffers for ADC_CH0 and ADC_CH1 are disabled using AINDIDS
+to reduce noise on the analog inputs.
+
+
+============================================================
+7. DIP SWITCH HARDWARE WIRING
+============================================================
+
+All DIP switch inputs use active-low wiring.
+
+For each DIP input:
+
+- Connect a 4.7k resistor from the MCU input pin to VDD
+- Connect the DIP switch between the MCU input pin and GND
+
+Wiring example:
+
+VDD
+ |
+4.7k
+ |
+MCU DIP input pin -------- DIP switch -------- GND
+
+Electrical behavior:
+
+- DIP open:   pin reads logic 1
+- DIP closed: pin reads logic 0
+
+
+============================================================
+8. CHANNEL NO/NC MODE OPERATION
+============================================================
+
+Each channel has an independent NO/NC DIP switch.
+
+Channel 1 uses P0.0.
+Channel 2 uses P0.1.
+
+NORMAL / NO MODE
+
+DIP open, input reads 1.
+
+- Object detected: sensing output LED ON
+- Object not detected: sensing output LED OFF
+
+REVERSE / NC MODE
+
+DIP closed, input reads 0.
+
+- Object detected: sensing output LED OFF
+- Object not detected: sensing output LED ON
+
+The NO/NC mode only reverses normal sensing operation.
+
+It does not reverse fault behavior.
+
+During sensor break or short circuit, the sensing output for the affected
+channel is always forced OFF.
+
+
+============================================================
+9. COMMON FAULT LED ENABLE DIP
+============================================================
+
+P0.3 controls both fault LEDs.
+
+P0.3 open / logic 1:
+
+- Channel 1 fault LED operates normally
+- Channel 2 fault LED operates normally
+
+P0.3 closed / logic 0:
+
+- Channel 1 fault LED forced OFF
+- Channel 2 fault LED forced OFF
+
+This DIP only masks the visible fault LED outputs.
+
+The firmware still classifies break and short-circuit conditions internally,
+and the affected channel sensing output is still forced OFF.
+
+
+============================================================
+10. ADC REFERENCE AND CONVERSION
+============================================================
+
+The firmware currently assumes:
+
+- ADC reference voltage: 5.0 V
+- ADC resolution: 12-bit
+- ADC output range: 0 to 4095 counts
+
+Conversion formula:
+
+ADC count = input voltage / 5.0 x 4095
+
+Voltage from ADC count:
+
+Input voltage = ADC count x 5.0 / 4095
+
+
+============================================================
+11. SENSOR VOLTAGE RANGES
+============================================================
+
+The same voltage ranges are used for both channels.
+
+SENSOR BREAK / NOT CONNECTED
+
+Voltage:
+
+0.00 V to 0.02 V
+
+ADC range:
+
+0 to 16 counts
+
+Outputs:
+
+- Sensing output LED OFF
+- Fault LED solid ON, if fault LEDs are enabled
+
+
+OBJECT DETECTED
+
+Voltage:
+
+0.03 V to 0.55 V
+
+ADC range:
+
+25 to 450 counts
+
+Normal / NO mode:
+
+- Sensing output LED ON
+- Fault LED OFF
+
+Reverse / NC mode:
+
+- Sensing output LED OFF
+- Fault LED OFF
+
+
+SENSOR CONNECTED, OBJECT NOT DETECTED
+
+Voltage:
+
+Above 0.55 V to below 1.50 V
+
+ADC range:
+
+451 to 1228 counts
+
+Normal / NO mode:
+
+- Sensing output LED OFF
+- Fault LED OFF
+
+Reverse / NC mode:
+
+- Sensing output LED ON
+- Fault LED OFF
+
+
+SHORT CIRCUIT
+
+Voltage:
+
+1.50 V and above
+
+ADC range:
+
+1229 counts and above
+
+Outputs:
+
+- Sensing output LED OFF
+- Fault LED blinking, if fault LEDs are enabled
+
+
+============================================================
+12. TRANSITION AND UNDEFINED RANGES
+============================================================
+
+There is a small gap between the break and sensing ranges:
+
+- Above 0.02 V and below 0.03 V
+
+Any value that does not match break, sensing, connected/not-sensing, or short
+is handled as a safe/default state:
+
+- Sensing output LED OFF
+- Fault LED OFF
+
+This prevents an undefined voltage from being treated as a valid object
+condition.
+
+
+============================================================
+13. ADC SAMPLING METHOD
+============================================================
+
+Both ADC channels are sampled repeatedly.
+
+For each main loop:
+
+- Channel 1 is read from ADC_CH0
+- Channel 2 is read from ADC_CH1
+- Each channel is sampled 16 times
+- The samples are averaged separately
+
+The averaged values are stored in:
+
+- ch1_adc_avg
+- ch2_adc_avg
+
+Averaging reduces electrical noise and prevents single-sample spikes from
+changing the outputs.
+
+
+============================================================
+14. WHY A DUMMY ADC CONVERSION IS USED
+============================================================
+
+The firmware switches between ADC_CH0 and ADC_CH1.
+
+The ADC contains an internal sample-and-hold capacitor. When changing from one
+ADC channel to another, the capacitor may temporarily retain charge from the
+previous input.
+
+For this reason, after selecting a channel, the firmware performs:
+
+1. One dummy conversion that is discarded
+2. One real conversion that is used
+
+This improves accuracy when the two sensor inputs have different voltages.
+
+
+============================================================
+15. OUTPUT PRIORITY
+============================================================
+
+The firmware applies the following priority independently to each channel:
+
+1. Short circuit
+2. Sensor break / sensor disconnected
+3. Object sensed
+4. Sensor connected but not sensing
+5. Unknown transition state
+
+Fault conditions always override the NO/NC DIP selection.
+
+For example, in reverse/NC mode, a sensor break does not turn the sensing
+output ON. The sensing output remains OFF and the fault LED indicates the
+fault.
+
+
+============================================================
+16. FAULT LED BLINKING
+============================================================
+
+The short-circuit blink rate is controlled by:
+
+FAULT_BLINK_WINDOWS
+
+Current value:
+
+80
+
+Behavior:
+
+- Higher value: slower blink
+- Lower value: faster blink
+
+Both channels use one shared blink clock, so if both channels are shorted,
+the two fault LEDs blink together.
+
+A solid break fault is not affected by the blink state.
+
+
+============================================================
+17. CHANNEL INDEPENDENCE
+============================================================
+
+The two channels are evaluated independently.
+
+Examples:
+
+- Channel 1 sensing normally while Channel 2 has a break:
+  - Channel 1 follows its own NO/NC mode
+  - Channel 2 sensing output is OFF
+  - Channel 2 fault LED is solid ON
+
+- Channel 1 shorted while Channel 2 senses an object:
+  - Channel 1 sensing output is OFF
+  - Channel 1 fault LED blinks
+  - Channel 2 continues normal operation
+
+The common P0.3 DIP is the only control shared by both fault LED outputs.
+
+
+============================================================
+18. STARTUP BEHAVIOR
+============================================================
+
+There is no startup blink sequence.
+
+At power-up:
+
+1. GPIO pins are configured
+2. ADC is enabled
+3. All four LED outputs are initially forced OFF
+4. Both sensor channels are sampled
+5. Outputs are updated according to the measured input states
+
+If a sensor is disconnected at startup and fault LEDs are enabled, the
+corresponding fault LED turns ON after the first valid ADC average is computed.
+
+
+============================================================
+19. HARDWARE CONNECTION CHECKLIST
+============================================================
+
+Before powering the board, verify:
+
+CHANNEL 1
+
+- Sensor signal connected to P1.7 / ADC_CH0
+- Sensing LED/output connected to P1.0
+- Fault LED connected to P1.2
+- NO/NC DIP connected to P0.0
+- 4.7k pull-up from P0.0 to VDD
+
+CHANNEL 2
+
+- Sensor signal connected to P3.0 / ADC_CH1
+- Sensing output LED connected to P1.1
+- Fault LED connected to P1.3
+- NO/NC DIP connected to P0.1
+- 4.7k pull-up from P0.1 to VDD
+
+COMMON FAULT MASK
+
+- DIP connected to P0.3
+- 4.7k pull-up from P0.3 to VDD
+
+GENERAL
+
+- MCU VDD and GND are correct and stable
+- ADC input voltage never exceeds the MCU ADC-safe voltage
+- LED current-limiting resistors are installed
+- Sensor and MCU grounds are common
+- Programmer is configured for the correct MS51 device
+- Firmware is flashed into APROM
+
+
+============================================================
+20. HARDWARE TEST PROCEDURE
+============================================================
+
+Test each channel independently.
+
+TEST 1: SENSOR DISCONNECTED
+
+Expected input:
+
+0.00 V to 0.02 V
+
+Expected result:
+
+- Sensing output OFF
+- Fault LED solid ON
+
+Repeat with P0.3 closed. The fault LED should turn OFF, but the sensing output
+must remain OFF.
+
+
+TEST 2: SENSOR CONNECTED, NOT SENSING
+
+Expected input:
+
+Above 0.55 V to below 1.50 V
+
+Normal/NO mode:
+
+- Sensing output OFF
+- Fault LED OFF
+
+Reverse/NC mode:
+
+- Sensing output ON
+- Fault LED OFF
+
+
+TEST 3: OBJECT DETECTED
+
+Expected input:
+
+0.03 V to 0.55 V
+
+Normal/NO mode:
+
+- Sensing output ON
+- Fault LED OFF
+
+Reverse/NC mode:
+
+- Sensing output OFF
+- Fault LED OFF
+
+
+TEST 4: SHORT CIRCUIT
+
+Expected input:
+
+1.50 V and above
+
+Expected result:
+
+- Sensing output OFF
+- Fault LED blinking
+
+With P0.3 closed:
+
+- Sensing output remains OFF
+- Fault LED is forced OFF
+
+
+TEST 5: DUAL-CHANNEL OPERATION
+
+Apply different conditions to Channel 1 and Channel 2 at the same time.
+Confirm that each channel reacts only to its own ADC input and NO/NC DIP.
+
+
+============================================================
+21. DEBUGGING GUIDE
+============================================================
+
+NO OUTPUT ON A CHANNEL
+
+Check:
+
+- Correct physical MCU pin
+- P1 mode register configuration
+- LED polarity
+- LED resistor and wiring
+- APROM flashing
+- Stable VDD and reset voltage
+
+
+ADC VALUE APPEARS WRONG
+
+Check:
+
+- Actual ADC reference voltage
+- Sensor input voltage with a multimeter or oscilloscope
+- Common ground between sensor and MCU
+- ADC channel mapping
+- P1.7 is connected to Channel 1
+- P3.0 is connected to Channel 2
+- AINDIDS includes both ADC channels
+
+
+NO/NC DIP DOES NOT WORK
+
+Measure the DIP input pin:
+
+- DIP open should be near VDD
+- DIP closed should be near 0 V
+
+Check the 4.7k pull-up resistor and switch-to-ground connection.
+
+
+FAULT MASK DIP DOES NOT WORK
+
+Measure P0.3:
+
+- Open should read logic 1 and enable fault LEDs
+- Closed should read logic 0 and disable both fault LEDs
+
+
+FAULT LED BLINKS TOO FAST
+
+Increase:
+
+FAULT_BLINK_WINDOWS
+
+
+FAULT LED BLINKS TOO SLOW
+
+Decrease:
+
+FAULT_BLINK_WINDOWS
+
+
+BUILD FAILS WITH DSEG RAM ERROR
+
+Keep ADC values in global uint16_t variables.
+Avoid returning large structures by value.
+Avoid unnecessary uint32_t local variables.
+Keep ADC_WINDOW_SAMPLES at 16 when using uint16_t sums because:
+
+4095 x 16 = 65520
+
+This is just below the maximum uint16_t value of 65535.
+
+
+============================================================
+22. SAFETY AND PRODUCT NOTES
+============================================================
+
+- Fault conditions always force the affected sensing output OFF.
+- NO/NC reversal is allowed only for normal sensing states.
+- The common fault DIP only disables the visible fault LEDs.
+- Short-circuit classification remains active even when fault LEDs are masked.
+- Unknown voltage ranges produce safe/default outputs.
+- ADC thresholds are tied to the assumed 5.0 V reference.
+- If the ADC reference changes, all threshold counts must be recalculated.
+- Validate all thresholds using the real production board and actual sensors.
+
+
+============================================================
+23. CURRENT CONFIGURATION SUMMARY
+============================================================
+
+ADC reference:
+
+5.0 V
+
+Channel 1:
+
+- ADC_CH0 / P1.7
+- Sense output P1.0
+- Fault output P1.2
+- NO/NC DIP P0.0
+
+Channel 2:
+
+- ADC_CH1 / P3.0
+- Sense output P1.1
+- Fault output P1.3
+- NO/NC DIP P0.1
+
+Common:
+
+- Fault LED enable DIP P0.3
+
+Voltage states:
+
+- 0.00–0.02 V: break
+- 0.03–0.55 V: object sensed
+- above 0.55 V to below 1.50 V: connected, not sensing
+- 1.50 V and above: short circuit
+
+DIP wiring:
+
+- 4.7k pull-up to VDD
+- DIP switch to GND
+- Open = logic 1
+- Closed = logic 0

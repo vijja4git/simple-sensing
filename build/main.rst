@@ -1,0 +1,772 @@
+                                      1 ;--------------------------------------------------------
+                                      2 ; File Created by SDCC : free open source ISO C Compiler
+                                      3 ; Version 4.5.0 #15242 (Mac OS X ppc)
+                                      4 ;--------------------------------------------------------
+                                      5 	.module main
+                                      6 	
+                                      7 	.optsdcc -mmcs51 --model-small
+                                      8 ;--------------------------------------------------------
+                                      9 ; Public variables in this module
+                                     10 ;--------------------------------------------------------
+                                     11 	.globl _main
+                                     12 	.globl _update_fault_led
+                                     13 	.globl _update_sensor_led
+                                     14 	.globl _short_circuit_detected
+                                     15 	.globl _sensor_connected_not_sensing
+                                     16 	.globl _object_detected
+                                     17 	.globl _sensor_break_detected
+                                     18 	.globl _fault_led_enabled
+                                     19 	.globl _reverse_mode_enabled
+                                     20 	.globl _read_adc_average
+                                     21 	.globl _read_adc_ch0
+                                     22 	.globl _adc_init
+                                     23 	.globl _gpio_init
+                                     24 	.globl _delay_loop_small
+                                     25 	.globl _P03
+                                     26 	.globl _P12
+                                     27 	.globl _P11
+                                     28 	.globl _P10
+                                     29 	.globl _P01
+                                     30 	.globl _P00
+                                     31 	.globl _AINDIDS
+                                     32 	.globl _ADCRH
+                                     33 	.globl _ADCRL
+                                     34 	.globl _ADCCON0
+                                     35 	.globl _ADCCON1
+                                     36 	.globl _P3M2
+                                     37 	.globl _P3M1
+                                     38 	.globl _P1M2
+                                     39 	.globl _P1M1
+                                     40 	.globl _P0M2
+                                     41 	.globl _P0M1
+                                     42 	.globl _CKDIV
+                                     43 	.globl _P3
+                                     44 	.globl _P1
+                                     45 	.globl _P0
+                                     46 ;--------------------------------------------------------
+                                     47 ; special function registers
+                                     48 ;--------------------------------------------------------
+                                     49 	.area RSEG    (ABS,DATA)
+      000000                         50 	.org 0x0000
+                           000080    51 _P0	=	0x0080
+                           000090    52 _P1	=	0x0090
+                           0000B0    53 _P3	=	0x00b0
+                           000095    54 _CKDIV	=	0x0095
+                           0000B1    55 _P0M1	=	0x00b1
+                           0000B2    56 _P0M2	=	0x00b2
+                           0000B3    57 _P1M1	=	0x00b3
+                           0000B4    58 _P1M2	=	0x00b4
+                           0000AC    59 _P3M1	=	0x00ac
+                           0000AD    60 _P3M2	=	0x00ad
+                           0000E1    61 _ADCCON1	=	0x00e1
+                           0000E8    62 _ADCCON0	=	0x00e8
+                           0000C2    63 _ADCRL	=	0x00c2
+                           0000C3    64 _ADCRH	=	0x00c3
+                           0000F6    65 _AINDIDS	=	0x00f6
+                                     66 ;--------------------------------------------------------
+                                     67 ; special function bits
+                                     68 ;--------------------------------------------------------
+                                     69 	.area RSEG    (ABS,DATA)
+      000000                         70 	.org 0x0000
+                           000080    71 _P00	=	0x0080
+                           000081    72 _P01	=	0x0081
+                           000090    73 _P10	=	0x0090
+                           000091    74 _P11	=	0x0091
+                           000092    75 _P12	=	0x0092
+                           000083    76 _P03	=	0x0083
+                                     77 ;--------------------------------------------------------
+                                     78 ; overlayable register banks
+                                     79 ;--------------------------------------------------------
+                                     80 	.area REG_BANK_0	(REL,OVR,DATA)
+      000000                         81 	.ds 8
+                                     82 ;--------------------------------------------------------
+                                     83 ; internal ram data
+                                     84 ;--------------------------------------------------------
+                                     85 	.area DSEG    (DATA)
+      000008                         86 _adc_avg:
+      000008                         87 	.ds 2
+      00000A                         88 _update_fault_led_fault_blink_state_10000_46:
+      00000A                         89 	.ds 1
+      00000B                         90 _update_fault_led_fault_blink_count_10000_46:
+      00000B                         91 	.ds 1
+                                     92 ;--------------------------------------------------------
+                                     93 ; overlayable items in internal ram
+                                     94 ;--------------------------------------------------------
+                                     95 	.area	OSEG    (OVR,DATA)
+                                     96 	.area	OSEG    (OVR,DATA)
+                                     97 ;--------------------------------------------------------
+                                     98 ; Stack segment in internal ram
+                                     99 ;--------------------------------------------------------
+                                    100 	.area SSEG
+      00000C                        101 __start__stack:
+      00000C                        102 	.ds	1
+                                    103 
+                                    104 ;--------------------------------------------------------
+                                    105 ; indirectly addressable internal ram data
+                                    106 ;--------------------------------------------------------
+                                    107 	.area ISEG    (DATA)
+                                    108 ;--------------------------------------------------------
+                                    109 ; absolute internal ram data
+                                    110 ;--------------------------------------------------------
+                                    111 	.area IABS    (ABS,DATA)
+                                    112 	.area IABS    (ABS,DATA)
+                                    113 ;--------------------------------------------------------
+                                    114 ; bit data
+                                    115 ;--------------------------------------------------------
+                                    116 	.area BSEG    (BIT)
+                                    117 ;--------------------------------------------------------
+                                    118 ; paged external ram data
+                                    119 ;--------------------------------------------------------
+                                    120 	.area PSEG    (PAG,XDATA)
+                                    121 ;--------------------------------------------------------
+                                    122 ; uninitialized external ram data
+                                    123 ;--------------------------------------------------------
+                                    124 	.area XSEG    (XDATA)
+                                    125 ;--------------------------------------------------------
+                                    126 ; absolute external ram data
+                                    127 ;--------------------------------------------------------
+                                    128 	.area XABS    (ABS,XDATA)
+                                    129 ;--------------------------------------------------------
+                                    130 ; initialized external ram data
+                                    131 ;--------------------------------------------------------
+                                    132 	.area XISEG   (XDATA)
+                                    133 	.area HOME    (CODE)
+                                    134 	.area GSINIT0 (CODE)
+                                    135 	.area GSINIT1 (CODE)
+                                    136 	.area GSINIT2 (CODE)
+                                    137 	.area GSINIT3 (CODE)
+                                    138 	.area GSINIT4 (CODE)
+                                    139 	.area GSINIT5 (CODE)
+                                    140 	.area GSINIT  (CODE)
+                                    141 	.area GSFINAL (CODE)
+                                    142 	.area CSEG    (CODE)
+                                    143 ;--------------------------------------------------------
+                                    144 ; interrupt vector
+                                    145 ;--------------------------------------------------------
+                                    146 	.area HOME    (CODE)
+      000000                        147 __interrupt_vect:
+      000000 02 00 4C         [24]  148 	ljmp	__sdcc_gsinit_startup
+                                    149 ; restartable atomic support routines
+      000003                        150 	.ds	5
+      000008                        151 sdcc_atomic_exchange_rollback_start::
+      000008 00               [12]  152 	nop
+      000009 00               [12]  153 	nop
+      00000A                        154 sdcc_atomic_exchange_pdata_impl:
+      00000A E2               [24]  155 	movx	a, @r0
+      00000B FB               [12]  156 	mov	r3, a
+      00000C EA               [12]  157 	mov	a, r2
+      00000D F2               [24]  158 	movx	@r0, a
+      00000E 80 2C            [24]  159 	sjmp	sdcc_atomic_exchange_exit
+      000010 00               [12]  160 	nop
+      000011 00               [12]  161 	nop
+      000012                        162 sdcc_atomic_exchange_xdata_impl:
+      000012 E0               [24]  163 	movx	a, @dptr
+      000013 FB               [12]  164 	mov	r3, a
+      000014 EA               [12]  165 	mov	a, r2
+      000015 F0               [24]  166 	movx	@dptr, a
+      000016 80 24            [24]  167 	sjmp	sdcc_atomic_exchange_exit
+      000018                        168 sdcc_atomic_compare_exchange_idata_impl:
+      000018 E6               [12]  169 	mov	a, @r0
+      000019 B5 02 02         [24]  170 	cjne	a, ar2, .+#5
+      00001C EB               [12]  171 	mov	a, r3
+      00001D F6               [12]  172 	mov	@r0, a
+      00001E 22               [24]  173 	ret
+      00001F 00               [12]  174 	nop
+      000020                        175 sdcc_atomic_compare_exchange_pdata_impl:
+      000020 E2               [24]  176 	movx	a, @r0
+      000021 B5 02 02         [24]  177 	cjne	a, ar2, .+#5
+      000024 EB               [12]  178 	mov	a, r3
+      000025 F2               [24]  179 	movx	@r0, a
+      000026 22               [24]  180 	ret
+      000027 00               [12]  181 	nop
+      000028                        182 sdcc_atomic_compare_exchange_xdata_impl:
+      000028 E0               [24]  183 	movx	a, @dptr
+      000029 B5 02 02         [24]  184 	cjne	a, ar2, .+#5
+      00002C EB               [12]  185 	mov	a, r3
+      00002D F0               [24]  186 	movx	@dptr, a
+      00002E 22               [24]  187 	ret
+      00002F                        188 sdcc_atomic_exchange_rollback_end::
+                                    189 
+      00002F                        190 sdcc_atomic_exchange_gptr_impl::
+      00002F 30 F6 E0         [24]  191 	jnb	b.6, sdcc_atomic_exchange_xdata_impl
+      000032 A8 82            [24]  192 	mov	r0, dpl
+      000034 20 F5 D3         [24]  193 	jb	b.5, sdcc_atomic_exchange_pdata_impl
+      000037                        194 sdcc_atomic_exchange_idata_impl:
+      000037 EA               [12]  195 	mov	a, r2
+      000038 C6               [12]  196 	xch	a, @r0
+      000039 F5 82            [12]  197 	mov	dpl, a
+      00003B 22               [24]  198 	ret
+      00003C                        199 sdcc_atomic_exchange_exit:
+      00003C 8B 82            [24]  200 	mov	dpl, r3
+      00003E 22               [24]  201 	ret
+      00003F                        202 sdcc_atomic_compare_exchange_gptr_impl::
+      00003F 30 F6 E6         [24]  203 	jnb	b.6, sdcc_atomic_compare_exchange_xdata_impl
+      000042 A8 82            [24]  204 	mov	r0, dpl
+      000044 20 F5 D9         [24]  205 	jb	b.5, sdcc_atomic_compare_exchange_pdata_impl
+      000047 80 CF            [24]  206 	sjmp	sdcc_atomic_compare_exchange_idata_impl
+                                    207 ;--------------------------------------------------------
+                                    208 ; global & static initialisations
+                                    209 ;--------------------------------------------------------
+                                    210 	.area HOME    (CODE)
+                                    211 	.area GSINIT  (CODE)
+                                    212 	.area GSFINAL (CODE)
+                                    213 	.area GSINIT  (CODE)
+                                    214 	.globl __sdcc_gsinit_startup
+                                    215 	.globl __sdcc_program_startup
+                                    216 	.globl __start__stack
+                                    217 	.globl __mcs51_genXINIT
+                                    218 	.globl __mcs51_genXRAMCLEAR
+                                    219 	.globl __mcs51_genRAMCLEAR
+                                    220 ;------------------------------------------------------------
+                                    221 ;Allocation info for local variables in function 'update_fault_led'
+                                    222 ;------------------------------------------------------------
+                                    223 ;fault_blink_state Allocated with name '_update_fault_led_fault_blink_state_10000_46'
+                                    224 ;fault_blink_count Allocated with name '_update_fault_led_fault_blink_count_10000_46'
+                                    225 ;------------------------------------------------------------
+                                    226 ;	main.c:358: static uint8_t fault_blink_state = LED_OFF;
+      0000A5 75 0A 00         [24]  227 	mov	_update_fault_led_fault_blink_state_10000_46,#0x00
+                                    228 ;	main.c:359: static uint8_t fault_blink_count = 0U;
+      0000A8 75 0B 00         [24]  229 	mov	_update_fault_led_fault_blink_count_10000_46,#0x00
+                                    230 ;	main.c:98: static uint16_t adc_avg = 0U;
+      0000AB E4               [12]  231 	clr	a
+      0000AC F5 08            [12]  232 	mov	_adc_avg,a
+      0000AE F5 09            [12]  233 	mov	(_adc_avg + 1),a
+                                    234 	.area GSFINAL (CODE)
+      0000B0 02 00 49         [24]  235 	ljmp	__sdcc_program_startup
+                                    236 ;--------------------------------------------------------
+                                    237 ; Home
+                                    238 ;--------------------------------------------------------
+                                    239 	.area HOME    (CODE)
+                                    240 	.area HOME    (CODE)
+      000049                        241 __sdcc_program_startup:
+      000049 02 02 66         [24]  242 	ljmp	_main
+                                    243 ;	return from main will return to caller
+                                    244 ;--------------------------------------------------------
+                                    245 ; code
+                                    246 ;--------------------------------------------------------
+                                    247 	.area CSEG    (CODE)
+                                    248 ;------------------------------------------------------------
+                                    249 ;Allocation info for local variables in function 'delay_loop_small'
+                                    250 ;------------------------------------------------------------
+                                    251 ;i             Allocated to registers r6 r7 
+                                    252 ;------------------------------------------------------------
+                                    253 ;	main.c:105: void delay_loop_small(void)
+                                    254 ;	-----------------------------------------
+                                    255 ;	 function delay_loop_small
+                                    256 ;	-----------------------------------------
+      0000B3                        257 _delay_loop_small:
+                           000007   258 	ar7 = 0x07
+                           000006   259 	ar6 = 0x06
+                           000005   260 	ar5 = 0x05
+                           000004   261 	ar4 = 0x04
+                           000003   262 	ar3 = 0x03
+                           000002   263 	ar2 = 0x02
+                           000001   264 	ar1 = 0x01
+                           000000   265 	ar0 = 0x00
+                                    266 ;	main.c:109: for (i = 0; i < 300; i++)
+      0000B3 7E 2C            [12]  267 	mov	r6,#0x2c
+      0000B5 7F 01            [12]  268 	mov	r7,#0x01
+      0000B7                        269 00104$:
+                                    270 ;	main.c:111: __asm__("nop");
+      0000B7 00               [12]  271 	nop
+      0000B8 1E               [12]  272 	dec	r6
+      0000B9 BE FF 01         [24]  273 	cjne	r6,#0xff,00115$
+      0000BC 1F               [12]  274 	dec	r7
+      0000BD                        275 00115$:
+                                    276 ;	main.c:109: for (i = 0; i < 300; i++)
+      0000BD EE               [12]  277 	mov	a,r6
+      0000BE 4F               [12]  278 	orl	a,r7
+      0000BF 70 F6            [24]  279 	jnz	00104$
+                                    280 ;	main.c:113: }
+      0000C1 22               [24]  281 	ret
+                                    282 ;------------------------------------------------------------
+                                    283 ;Allocation info for local variables in function 'gpio_init'
+                                    284 ;------------------------------------------------------------
+                                    285 ;	main.c:120: void gpio_init(void)
+                                    286 ;	-----------------------------------------
+                                    287 ;	 function gpio_init
+                                    288 ;	-----------------------------------------
+      0000C2                        289 _gpio_init:
+                                    290 ;	main.c:123: P1M1 &= ~(1U << 0);
+      0000C2 53 B3 FE         [24]  291 	anl	_P1M1,#0xfe
+                                    292 ;	main.c:124: P1M2 |=  (1U << 0);
+      0000C5 43 B4 01         [24]  293 	orl	_P1M2,#0x01
+                                    294 ;	main.c:127: P1M1 &= ~(1U << 2);
+      0000C8 53 B3 FB         [24]  295 	anl	_P1M1,#0xfb
+                                    296 ;	main.c:128: P1M2 |=  (1U << 2);
+      0000CB 43 B4 04         [24]  297 	orl	_P1M2,#0x04
+                                    298 ;	main.c:131: P1M1 |=  (1U << 7);
+      0000CE 43 B3 80         [24]  299 	orl	_P1M1,#0x80
+                                    300 ;	main.c:132: P1M2 &= ~(1U << 7);
+      0000D1 53 B4 7F         [24]  301 	anl	_P1M2,#0x7f
+                                    302 ;	main.c:135: P0M1 |=  (1U << 0);
+      0000D4 43 B1 01         [24]  303 	orl	_P0M1,#0x01
+                                    304 ;	main.c:136: P0M2 &= ~(1U << 0);
+      0000D7 53 B2 FE         [24]  305 	anl	_P0M2,#0xfe
+                                    306 ;	main.c:139: P0M1 |=  (1U << 3);
+      0000DA 43 B1 08         [24]  307 	orl	_P0M1,#0x08
+                                    308 ;	main.c:140: P0M2 &= ~(1U << 3);
+      0000DD 53 B2 F7         [24]  309 	anl	_P0M2,#0xf7
+                                    310 ;	main.c:143: AINDIDS |= 0x01U;
+      0000E0 43 F6 01         [24]  311 	orl	_AINDIDS,#0x01
+                                    312 ;	main.c:145: P10 = LED_OFF;
+                                    313 ;	assignBit
+      0000E3 C2 90            [12]  314 	clr	_P10
+                                    315 ;	main.c:146: P12 = LED_OFF;
+                                    316 ;	assignBit
+      0000E5 C2 92            [12]  317 	clr	_P12
+                                    318 ;	main.c:147: }
+      0000E7 22               [24]  319 	ret
+                                    320 ;------------------------------------------------------------
+                                    321 ;Allocation info for local variables in function 'adc_init'
+                                    322 ;------------------------------------------------------------
+                                    323 ;	main.c:154: void adc_init(void)
+                                    324 ;	-----------------------------------------
+                                    325 ;	 function adc_init
+                                    326 ;	-----------------------------------------
+      0000E8                        327 _adc_init:
+                                    328 ;	main.c:157: ADCCON1 |= 0x01U;
+      0000E8 43 E1 01         [24]  329 	orl	_ADCCON1,#0x01
+                                    330 ;	main.c:160: ADCCON0 &= ~0x80U;
+      0000EB 53 E8 7F         [24]  331 	anl	_ADCCON0,#0x7f
+                                    332 ;	main.c:161: }
+      0000EE 22               [24]  333 	ret
+                                    334 ;------------------------------------------------------------
+                                    335 ;Allocation info for local variables in function 'read_adc_ch0'
+                                    336 ;------------------------------------------------------------
+                                    337 ;result        Allocated to registers 
+                                    338 ;------------------------------------------------------------
+                                    339 ;	main.c:168: uint16_t read_adc_ch0(void)
+                                    340 ;	-----------------------------------------
+                                    341 ;	 function read_adc_ch0
+                                    342 ;	-----------------------------------------
+      0000EF                        343 _read_adc_ch0:
+                                    344 ;	main.c:173: ADCCON0 &= 0xF0U;
+      0000EF 53 E8 F0         [24]  345 	anl	_ADCCON0,#0xf0
+                                    346 ;	main.c:174: ADCCON0 |= 0x00U;
+      0000F2 85 E8 E8         [24]  347 	mov	_ADCCON0,_ADCCON0
+                                    348 ;	main.c:177: ADCCON0 &= ~0x80U;
+      0000F5 53 E8 7F         [24]  349 	anl	_ADCCON0,#0x7f
+                                    350 ;	main.c:178: ADCCON0 |=  0x40U;
+      0000F8 43 E8 40         [24]  351 	orl	_ADCCON0,#0x40
+                                    352 ;	main.c:180: while ((ADCCON0 & 0x80U) == 0U)
+      0000FB                        353 00101$:
+      0000FB E5 E8            [12]  354 	mov	a,_ADCCON0
+      0000FD 30 E7 FB         [24]  355 	jnb	acc.7,00101$
+                                    356 ;	main.c:184: result = ((uint16_t)ADCRH << 4) |
+      000100 AE C3            [24]  357 	mov	r6,_ADCRH
+      000102 E4               [12]  358 	clr	a
+      000103 CE               [12]  359 	xch	a,r6
+      000104 C4               [12]  360 	swap	a
+      000105 CE               [12]  361 	xch	a,r6
+      000106 6E               [12]  362 	xrl	a,r6
+      000107 CE               [12]  363 	xch	a,r6
+      000108 54 F0            [12]  364 	anl	a,#0xf0
+      00010A CE               [12]  365 	xch	a,r6
+      00010B 6E               [12]  366 	xrl	a,r6
+      00010C FF               [12]  367 	mov	r7,a
+                                    368 ;	main.c:185: (ADCRL & 0x0FU);
+      00010D AC C2            [24]  369 	mov	r4,_ADCRL
+      00010F 53 04 0F         [24]  370 	anl	ar4,#0x0f
+      000112 7D 00            [12]  371 	mov	r5,#0x00
+      000114 EE               [12]  372 	mov	a,r6
+      000115 42 04            [12]  373 	orl	ar4,a
+      000117 EF               [12]  374 	mov	a,r7
+      000118 42 05            [12]  375 	orl	ar5,a
+      00011A 8C 82            [24]  376 	mov	dpl,r4
+      00011C 8D 83            [24]  377 	mov	dph,r5
+                                    378 ;	main.c:187: return result;
+                                    379 ;	main.c:188: }
+      00011E 22               [24]  380 	ret
+                                    381 ;------------------------------------------------------------
+                                    382 ;Allocation info for local variables in function 'read_adc_average'
+                                    383 ;------------------------------------------------------------
+                                    384 ;i             Allocated to registers r5 
+                                    385 ;sample        Allocated to registers r3 r4 
+                                    386 ;sum           Allocated to registers r6 r7 
+                                    387 ;------------------------------------------------------------
+                                    388 ;	main.c:195: void read_adc_average(void)
+                                    389 ;	-----------------------------------------
+                                    390 ;	 function read_adc_average
+                                    391 ;	-----------------------------------------
+      00011F                        392 _read_adc_average:
+                                    393 ;	main.c:201: sum = 0U;
+      00011F 7E 00            [12]  394 	mov	r6,#0x00
+      000121 7F 00            [12]  395 	mov	r7,#0x00
+                                    396 ;	main.c:203: for (i = 0; i < ADC_WINDOW_SAMPLES; i++)
+      000123 7D 10            [12]  397 	mov	r5,#0x10
+      000125                        398 00104$:
+                                    399 ;	main.c:205: sample = read_adc_ch0();
+      000125 C0 07            [24]  400 	push	ar7
+      000127 C0 06            [24]  401 	push	ar6
+      000129 C0 05            [24]  402 	push	ar5
+      00012B 12 00 EF         [24]  403 	lcall	_read_adc_ch0
+      00012E AB 82            [24]  404 	mov	r3, dpl
+      000130 AC 83            [24]  405 	mov	r4, dph
+      000132 D0 05            [24]  406 	pop	ar5
+      000134 D0 06            [24]  407 	pop	ar6
+      000136 D0 07            [24]  408 	pop	ar7
+                                    409 ;	main.c:206: sum += sample;
+      000138 EB               [12]  410 	mov	a,r3
+      000139 2E               [12]  411 	add	a, r6
+      00013A FE               [12]  412 	mov	r6,a
+      00013B EC               [12]  413 	mov	a,r4
+      00013C 3F               [12]  414 	addc	a, r7
+      00013D FF               [12]  415 	mov	r7,a
+                                    416 ;	main.c:203: for (i = 0; i < ADC_WINDOW_SAMPLES; i++)
+      00013E DD E5            [24]  417 	djnz	r5,00104$
+                                    418 ;	main.c:209: adc_avg = sum / ADC_WINDOW_SAMPLES;
+      000140 EF               [12]  419 	mov	a,r7
+      000141 C4               [12]  420 	swap	a
+      000142 CE               [12]  421 	xch	a,r6
+      000143 C4               [12]  422 	swap	a
+      000144 54 0F            [12]  423 	anl	a,#0x0f
+      000146 6E               [12]  424 	xrl	a,r6
+      000147 CE               [12]  425 	xch	a,r6
+      000148 54 0F            [12]  426 	anl	a,#0x0f
+      00014A CE               [12]  427 	xch	a,r6
+      00014B 6E               [12]  428 	xrl	a,r6
+      00014C CE               [12]  429 	xch	a,r6
+      00014D FF               [12]  430 	mov	r7,a
+      00014E 8E 08            [24]  431 	mov	_adc_avg,r6
+      000150 8F 09            [24]  432 	mov	(_adc_avg + 1),r7
+                                    433 ;	main.c:210: }
+      000152 22               [24]  434 	ret
+                                    435 ;------------------------------------------------------------
+                                    436 ;Allocation info for local variables in function 'reverse_mode_enabled'
+                                    437 ;------------------------------------------------------------
+                                    438 ;	main.c:217: uint8_t reverse_mode_enabled(void)
+                                    439 ;	-----------------------------------------
+                                    440 ;	 function reverse_mode_enabled
+                                    441 ;	-----------------------------------------
+      000153                        442 _reverse_mode_enabled:
+                                    443 ;	main.c:223: if (P00 == 0U)
+      000153 20 80 04         [24]  444 	jb	_P00,00102$
+                                    445 ;	main.c:225: return REVERSE_MODE_ON;
+      000156 75 82 01         [24]  446 	mov	dpl, #0x01
+      000159 22               [24]  447 	ret
+      00015A                        448 00102$:
+                                    449 ;	main.c:228: return REVERSE_MODE_OFF;
+      00015A 75 82 00         [24]  450 	mov	dpl, #0x00
+                                    451 ;	main.c:229: }
+      00015D 22               [24]  452 	ret
+                                    453 ;------------------------------------------------------------
+                                    454 ;Allocation info for local variables in function 'fault_led_enabled'
+                                    455 ;------------------------------------------------------------
+                                    456 ;	main.c:232: uint8_t fault_led_enabled(void)
+                                    457 ;	-----------------------------------------
+                                    458 ;	 function fault_led_enabled
+                                    459 ;	-----------------------------------------
+      00015E                        460 _fault_led_enabled:
+                                    461 ;	main.c:238: if (P03 == 0U)
+      00015E 20 83 04         [24]  462 	jb	_P03,00102$
+                                    463 ;	main.c:240: return FAULT_LED_DISABLED;
+      000161 75 82 00         [24]  464 	mov	dpl, #0x00
+      000164 22               [24]  465 	ret
+      000165                        466 00102$:
+                                    467 ;	main.c:243: return FAULT_LED_ENABLED;
+      000165 75 82 01         [24]  468 	mov	dpl, #0x01
+                                    469 ;	main.c:244: }
+      000168 22               [24]  470 	ret
+                                    471 ;------------------------------------------------------------
+                                    472 ;Allocation info for local variables in function 'sensor_break_detected'
+                                    473 ;------------------------------------------------------------
+                                    474 ;	main.c:251: uint8_t sensor_break_detected(void)
+                                    475 ;	-----------------------------------------
+                                    476 ;	 function sensor_break_detected
+                                    477 ;	-----------------------------------------
+      000169                        478 _sensor_break_detected:
+                                    479 ;	main.c:253: if (adc_avg <= ADC_BREAK_MAX)
+      000169 AE 08            [24]  480 	mov	r6,_adc_avg
+      00016B AF 09            [24]  481 	mov	r7,(_adc_avg + 1)
+      00016D C3               [12]  482 	clr	c
+      00016E 74 10            [12]  483 	mov	a,#0x10
+      000170 9E               [12]  484 	subb	a,r6
+      000171 E4               [12]  485 	clr	a
+      000172 9F               [12]  486 	subb	a,r7
+      000173 40 04            [24]  487 	jc	00102$
+                                    488 ;	main.c:255: return 1U;
+      000175 75 82 01         [24]  489 	mov	dpl, #0x01
+      000178 22               [24]  490 	ret
+      000179                        491 00102$:
+                                    492 ;	main.c:258: return 0U;
+      000179 75 82 00         [24]  493 	mov	dpl, #0x00
+                                    494 ;	main.c:259: }
+      00017C 22               [24]  495 	ret
+                                    496 ;------------------------------------------------------------
+                                    497 ;Allocation info for local variables in function 'object_detected'
+                                    498 ;------------------------------------------------------------
+                                    499 ;	main.c:262: uint8_t object_detected(void)
+                                    500 ;	-----------------------------------------
+                                    501 ;	 function object_detected
+                                    502 ;	-----------------------------------------
+      00017D                        503 _object_detected:
+                                    504 ;	main.c:264: if ((adc_avg >= ADC_SENSE_MIN) &&
+      00017D AE 08            [24]  505 	mov	r6,_adc_avg
+      00017F AF 09            [24]  506 	mov	r7,(_adc_avg + 1)
+      000181 C3               [12]  507 	clr	c
+      000182 EE               [12]  508 	mov	a,r6
+      000183 94 19            [12]  509 	subb	a,#0x19
+      000185 EF               [12]  510 	mov	a,r7
+      000186 94 00            [12]  511 	subb	a,#0x00
+                                    512 ;	main.c:265: (adc_avg <= ADC_SENSE_MAX))
+      000188 40 0C            [24]  513 	jc	00102$
+      00018A 74 C2            [12]  514 	mov	a,#0xc2
+      00018C 9E               [12]  515 	subb	a,r6
+      00018D 74 01            [12]  516 	mov	a,#0x01
+      00018F 9F               [12]  517 	subb	a,r7
+      000190 40 04            [24]  518 	jc	00102$
+                                    519 ;	main.c:267: return 1U;
+      000192 75 82 01         [24]  520 	mov	dpl, #0x01
+      000195 22               [24]  521 	ret
+      000196                        522 00102$:
+                                    523 ;	main.c:270: return 0U;
+      000196 75 82 00         [24]  524 	mov	dpl, #0x00
+                                    525 ;	main.c:271: }
+      000199 22               [24]  526 	ret
+                                    527 ;------------------------------------------------------------
+                                    528 ;Allocation info for local variables in function 'sensor_connected_not_sensing'
+                                    529 ;------------------------------------------------------------
+                                    530 ;	main.c:274: uint8_t sensor_connected_not_sensing(void)
+                                    531 ;	-----------------------------------------
+                                    532 ;	 function sensor_connected_not_sensing
+                                    533 ;	-----------------------------------------
+      00019A                        534 _sensor_connected_not_sensing:
+                                    535 ;	main.c:276: if ((adc_avg >= ADC_CONNECTED_MIN) &&
+      00019A AE 08            [24]  536 	mov	r6,_adc_avg
+      00019C AF 09            [24]  537 	mov	r7,(_adc_avg + 1)
+      00019E C3               [12]  538 	clr	c
+      00019F EE               [12]  539 	mov	a,r6
+      0001A0 94 C3            [12]  540 	subb	a,#0xc3
+      0001A2 EF               [12]  541 	mov	a,r7
+      0001A3 94 01            [12]  542 	subb	a,#0x01
+                                    543 ;	main.c:277: (adc_avg <= ADC_CONNECTED_MAX))
+      0001A5 40 0C            [24]  544 	jc	00102$
+      0001A7 74 CC            [12]  545 	mov	a,#0xcc
+      0001A9 9E               [12]  546 	subb	a,r6
+      0001AA 74 04            [12]  547 	mov	a,#0x04
+      0001AC 9F               [12]  548 	subb	a,r7
+      0001AD 40 04            [24]  549 	jc	00102$
+                                    550 ;	main.c:279: return 1U;
+      0001AF 75 82 01         [24]  551 	mov	dpl, #0x01
+      0001B2 22               [24]  552 	ret
+      0001B3                        553 00102$:
+                                    554 ;	main.c:282: return 0U;
+      0001B3 75 82 00         [24]  555 	mov	dpl, #0x00
+                                    556 ;	main.c:283: }
+      0001B6 22               [24]  557 	ret
+                                    558 ;------------------------------------------------------------
+                                    559 ;Allocation info for local variables in function 'short_circuit_detected'
+                                    560 ;------------------------------------------------------------
+                                    561 ;	main.c:286: uint8_t short_circuit_detected(void)
+                                    562 ;	-----------------------------------------
+                                    563 ;	 function short_circuit_detected
+                                    564 ;	-----------------------------------------
+      0001B7                        565 _short_circuit_detected:
+                                    566 ;	main.c:288: if (adc_avg >= ADC_SHORT_MIN)
+      0001B7 AE 08            [24]  567 	mov	r6,_adc_avg
+      0001B9 AF 09            [24]  568 	mov	r7,(_adc_avg + 1)
+      0001BB C3               [12]  569 	clr	c
+      0001BC EE               [12]  570 	mov	a,r6
+      0001BD 94 CD            [12]  571 	subb	a,#0xcd
+      0001BF EF               [12]  572 	mov	a,r7
+      0001C0 94 04            [12]  573 	subb	a,#0x04
+      0001C2 40 04            [24]  574 	jc	00102$
+                                    575 ;	main.c:290: return 1U;
+      0001C4 75 82 01         [24]  576 	mov	dpl, #0x01
+      0001C7 22               [24]  577 	ret
+      0001C8                        578 00102$:
+                                    579 ;	main.c:293: return 0U;
+      0001C8 75 82 00         [24]  580 	mov	dpl, #0x00
+                                    581 ;	main.c:294: }
+      0001CB 22               [24]  582 	ret
+                                    583 ;------------------------------------------------------------
+                                    584 ;Allocation info for local variables in function 'update_sensor_led'
+                                    585 ;------------------------------------------------------------
+                                    586 ;reverse_mode  Allocated to registers r7 
+                                    587 ;------------------------------------------------------------
+                                    588 ;	main.c:301: void update_sensor_led(void)
+                                    589 ;	-----------------------------------------
+                                    590 ;	 function update_sensor_led
+                                    591 ;	-----------------------------------------
+      0001CC                        592 _update_sensor_led:
+                                    593 ;	main.c:305: reverse_mode = reverse_mode_enabled();
+      0001CC 12 01 53         [24]  594 	lcall	_reverse_mode_enabled
+      0001CF AF 82            [24]  595 	mov	r7, dpl
+                                    596 ;	main.c:309: if (short_circuit_detected() != 0U)
+      0001D1 C0 07            [24]  597 	push	ar7
+      0001D3 12 01 B7         [24]  598 	lcall	_short_circuit_detected
+      0001D6 E5 82            [12]  599 	mov	a, dpl
+      0001D8 D0 07            [24]  600 	pop	ar7
+      0001DA 60 03            [24]  601 	jz	00117$
+                                    602 ;	main.c:311: P10 = LED_OFF;
+                                    603 ;	assignBit
+      0001DC C2 90            [12]  604 	clr	_P10
+      0001DE 22               [24]  605 	ret
+      0001DF                        606 00117$:
+                                    607 ;	main.c:313: else if (sensor_break_detected() != 0U)
+      0001DF C0 07            [24]  608 	push	ar7
+      0001E1 12 01 69         [24]  609 	lcall	_sensor_break_detected
+      0001E4 E5 82            [12]  610 	mov	a, dpl
+      0001E6 D0 07            [24]  611 	pop	ar7
+      0001E8 60 03            [24]  612 	jz	00114$
+                                    613 ;	main.c:315: P10 = LED_OFF;
+                                    614 ;	assignBit
+      0001EA C2 90            [12]  615 	clr	_P10
+      0001EC 22               [24]  616 	ret
+      0001ED                        617 00114$:
+                                    618 ;	main.c:317: else if (object_detected() != 0U)
+      0001ED C0 07            [24]  619 	push	ar7
+      0001EF 12 01 7D         [24]  620 	lcall	_object_detected
+      0001F2 E5 82            [12]  621 	mov	a, dpl
+      0001F4 D0 07            [24]  622 	pop	ar7
+      0001F6 60 09            [24]  623 	jz	00111$
+                                    624 ;	main.c:319: if (reverse_mode != 0U)
+      0001F8 EF               [12]  625 	mov	a,r7
+      0001F9 60 03            [24]  626 	jz	00102$
+                                    627 ;	main.c:322: P10 = LED_OFF;
+                                    628 ;	assignBit
+      0001FB C2 90            [12]  629 	clr	_P10
+      0001FD 22               [24]  630 	ret
+      0001FE                        631 00102$:
+                                    632 ;	main.c:327: P10 = LED_ON;
+                                    633 ;	assignBit
+      0001FE D2 90            [12]  634 	setb	_P10
+      000200 22               [24]  635 	ret
+      000201                        636 00111$:
+                                    637 ;	main.c:330: else if (sensor_connected_not_sensing() != 0U)
+      000201 C0 07            [24]  638 	push	ar7
+      000203 12 01 9A         [24]  639 	lcall	_sensor_connected_not_sensing
+      000206 E5 82            [12]  640 	mov	a, dpl
+      000208 D0 07            [24]  641 	pop	ar7
+      00020A 60 09            [24]  642 	jz	00108$
+                                    643 ;	main.c:332: if (reverse_mode != 0U)
+      00020C EF               [12]  644 	mov	a,r7
+      00020D 60 03            [24]  645 	jz	00105$
+                                    646 ;	main.c:335: P10 = LED_ON;
+                                    647 ;	assignBit
+      00020F D2 90            [12]  648 	setb	_P10
+      000211 22               [24]  649 	ret
+      000212                        650 00105$:
+                                    651 ;	main.c:340: P10 = LED_OFF;
+                                    652 ;	assignBit
+      000212 C2 90            [12]  653 	clr	_P10
+      000214 22               [24]  654 	ret
+      000215                        655 00108$:
+                                    656 ;	main.c:347: P10 = LED_OFF;
+                                    657 ;	assignBit
+      000215 C2 90            [12]  658 	clr	_P10
+                                    659 ;	main.c:349: }
+      000217 22               [24]  660 	ret
+                                    661 ;------------------------------------------------------------
+                                    662 ;Allocation info for local variables in function 'update_fault_led'
+                                    663 ;------------------------------------------------------------
+                                    664 ;fault_blink_state Allocated with name '_update_fault_led_fault_blink_state_10000_46'
+                                    665 ;fault_blink_count Allocated with name '_update_fault_led_fault_blink_count_10000_46'
+                                    666 ;------------------------------------------------------------
+                                    667 ;	main.c:356: void update_fault_led(void)
+                                    668 ;	-----------------------------------------
+                                    669 ;	 function update_fault_led
+                                    670 ;	-----------------------------------------
+      000218                        671 _update_fault_led:
+                                    672 ;	main.c:363: if (fault_led_enabled() == FAULT_LED_DISABLED)
+      000218 12 01 5E         [24]  673 	lcall	_fault_led_enabled
+      00021B E5 82            [12]  674 	mov	a, dpl
+                                    675 ;	main.c:365: fault_blink_count = 0U;
+                                    676 ;	main.c:366: fault_blink_state = LED_OFF;
+      00021D 70 07            [24]  677 	jnz	00102$
+      00021F F5 0B            [12]  678 	mov	_update_fault_led_fault_blink_count_10000_46,a
+      000221 F5 0A            [12]  679 	mov	_update_fault_led_fault_blink_state_10000_46,a
+                                    680 ;	main.c:367: P12 = LED_OFF;
+                                    681 ;	assignBit
+      000223 C2 92            [12]  682 	clr	_P12
+                                    683 ;	main.c:368: return;
+      000225 22               [24]  684 	ret
+      000226                        685 00102$:
+                                    686 ;	main.c:371: if (short_circuit_detected() != 0U)
+      000226 12 01 B7         [24]  687 	lcall	_short_circuit_detected
+      000229 E5 82            [12]  688 	mov	a, dpl
+      00022B 60 20            [24]  689 	jz	00113$
+                                    690 ;	main.c:374: if (fault_blink_count < FAULT_BLINK_WINDOWS)
+      00022D 74 B0            [12]  691 	mov	a,#0x100 - 0x50
+      00022F 25 0B            [12]  692 	add	a,_update_fault_led_fault_blink_count_10000_46
+      000231 40 04            [24]  693 	jc	00107$
+                                    694 ;	main.c:376: fault_blink_count++;
+      000233 05 0B            [12]  695 	inc	_update_fault_led_fault_blink_count_10000_46
+      000235 80 0F            [24]  696 	sjmp	00108$
+      000237                        697 00107$:
+                                    698 ;	main.c:380: fault_blink_count = 0U;
+      000237 75 0B 00         [24]  699 	mov	_update_fault_led_fault_blink_count_10000_46,#0x00
+                                    700 ;	main.c:382: if (fault_blink_state == LED_OFF)
+      00023A E5 0A            [12]  701 	mov	a,_update_fault_led_fault_blink_state_10000_46
+      00023C 70 05            [24]  702 	jnz	00104$
+                                    703 ;	main.c:384: fault_blink_state = LED_ON;
+      00023E 75 0A 01         [24]  704 	mov	_update_fault_led_fault_blink_state_10000_46,#0x01
+      000241 80 03            [24]  705 	sjmp	00108$
+      000243                        706 00104$:
+                                    707 ;	main.c:388: fault_blink_state = LED_OFF;
+      000243 75 0A 00         [24]  708 	mov	_update_fault_led_fault_blink_state_10000_46,#0x00
+      000246                        709 00108$:
+                                    710 ;	main.c:392: P12 = fault_blink_state;
+                                    711 ;	assignBit
+      000246 E5 0A            [12]  712 	mov	a,_update_fault_led_fault_blink_state_10000_46
+      000248 24 FF            [12]  713 	add	a,#0xff
+      00024A 92 92            [24]  714 	mov	_P12,c
+      00024C 22               [24]  715 	ret
+      00024D                        716 00113$:
+                                    717 ;	main.c:394: else if (sensor_break_detected() != 0U)
+      00024D 12 01 69         [24]  718 	lcall	_sensor_break_detected
+      000250 E5 82            [12]  719 	mov	a, dpl
+      000252 60 09            [24]  720 	jz	00110$
+                                    721 ;	main.c:397: fault_blink_count = 0U;
+      000254 75 0B 00         [24]  722 	mov	_update_fault_led_fault_blink_count_10000_46,#0x00
+                                    723 ;	main.c:398: fault_blink_state = LED_OFF;
+      000257 75 0A 00         [24]  724 	mov	_update_fault_led_fault_blink_state_10000_46,#0x00
+                                    725 ;	main.c:400: P12 = LED_ON;
+                                    726 ;	assignBit
+      00025A D2 92            [12]  727 	setb	_P12
+      00025C 22               [24]  728 	ret
+      00025D                        729 00110$:
+                                    730 ;	main.c:405: fault_blink_count = 0U;
+      00025D 75 0B 00         [24]  731 	mov	_update_fault_led_fault_blink_count_10000_46,#0x00
+                                    732 ;	main.c:406: fault_blink_state = LED_OFF;
+      000260 75 0A 00         [24]  733 	mov	_update_fault_led_fault_blink_state_10000_46,#0x00
+                                    734 ;	main.c:408: P12 = LED_OFF;
+                                    735 ;	assignBit
+      000263 C2 92            [12]  736 	clr	_P12
+                                    737 ;	main.c:410: }
+      000265 22               [24]  738 	ret
+                                    739 ;------------------------------------------------------------
+                                    740 ;Allocation info for local variables in function 'main'
+                                    741 ;------------------------------------------------------------
+                                    742 ;	main.c:417: void main(void)
+                                    743 ;	-----------------------------------------
+                                    744 ;	 function main
+                                    745 ;	-----------------------------------------
+      000266                        746 _main:
+                                    747 ;	main.c:419: gpio_init();
+      000266 12 00 C2         [24]  748 	lcall	_gpio_init
+                                    749 ;	main.c:420: adc_init();
+      000269 12 00 E8         [24]  750 	lcall	_adc_init
+                                    751 ;	main.c:422: P10 = LED_OFF;
+                                    752 ;	assignBit
+      00026C C2 90            [12]  753 	clr	_P10
+                                    754 ;	main.c:423: P12 = LED_OFF;
+                                    755 ;	assignBit
+      00026E C2 92            [12]  756 	clr	_P12
+                                    757 ;	main.c:425: while (1)
+      000270                        758 00102$:
+                                    759 ;	main.c:427: read_adc_average();
+      000270 12 01 1F         [24]  760 	lcall	_read_adc_average
+                                    761 ;	main.c:429: update_sensor_led();
+      000273 12 01 CC         [24]  762 	lcall	_update_sensor_led
+                                    763 ;	main.c:430: update_fault_led();
+      000276 12 02 18         [24]  764 	lcall	_update_fault_led
+                                    765 ;	main.c:432: delay_loop_small();
+      000279 12 00 B3         [24]  766 	lcall	_delay_loop_small
+                                    767 ;	main.c:434: }
+      00027C 80 F2            [24]  768 	sjmp	00102$
+                                    769 	.area CSEG    (CODE)
+                                    770 	.area CONST   (CODE)
+                                    771 	.area XINIT   (CODE)
+                                    772 	.area CABS    (ABS,CODE)
