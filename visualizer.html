@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dual-Channel NAMUR Visualizer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+      --ink: #172026;
+      --muted: #5e6a71;
+      --line: #ccd5db;
+      --panel: #f7f9fa;
+      --good: #1f8a4c;
+      --warn: #c68a00;
+      --bad: #c23b32;
+      --off: #9aa5aa;
+      --blue: #2368a2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.7rem, 3vw, 2.6rem);
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 1.1rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .summary {
+      margin-bottom: 24px;
+      max-width: 760px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .channel,
+    .reference {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    label {
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--blue);
+    }
+
+    .value {
+      min-width: 96px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 6px 8px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .state {
+      margin: 16px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .state-name {
+      margin-bottom: 4px;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .state-detail {
+      color: var(--muted);
+    }
+
+    .outputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .output {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+      font-weight: 700;
+    }
+
+    .lamp {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      border: 2px solid #6f7b82;
+      border-radius: 50%;
+      background: var(--off);
+      box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.4);
+    }
+
+    .lamp.on.good {
+      border-color: #116b37;
+      background: var(--good);
+      box-shadow: 0 0 0 4px rgba(31, 138, 76, 0.16);
+    }
+
+    .lamp.on.bad {
+      border-color: #8d241e;
+      background: var(--bad);
+      box-shadow: 0 0 0 4px rgba(194, 59, 50, 0.16);
+    }
+
+    .lamp.blink {
+      animation: blink 1s steps(2, start) infinite;
+    }
+
+    @keyframes blink {
+      50% {
+        background: var(--off);
+        box-shadow: none;
+      }
+    }
+
+    .reference {
+      margin-top: 18px;
+    }
+
+    .ranges {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .range {
+      border-left: 5px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .range.break {
+      border-color: var(--bad);
+    }
+
+    .range.sense {
+      border-color: var(--good);
+    }
+
+    .range.connected {
+      border-color: var(--blue);
+    }
+
+    .range.short {
+      border-color: var(--warn);
+    }
+
+    .range strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .range span {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 820px) {
+      .layout,
+      .ranges {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Dual-Channel NAMUR Visualizer</h1>
+    <p class="summary">
+      Move each channel voltage to see how the firmware classifies the sensor,
+      applies NO/NC mode, and drives the sensing and fault outputs.
+    </p>
+
+    <section class="layout" aria-label="Channel controls">
+      <article class="channel" data-channel="1">
+        <h2>Channel 1</h2>
+        <div class="controls">
+          <div>
+            <div class="control-row">
+              <label for="ch1-voltage">Input voltage</label>
+              <output class="value" id="ch1-readout">0.30 V</output>
+            </div>
+            <input id="ch1-voltage" type="range" min="0" max="5" value="0.30" step="0.01">
+          </div>
+          <div class="control-row">
+            <label for="ch1-reverse">Reverse / NC DIP closed</label>
+            <input id="ch1-reverse" type="checkbox">
+          </div>
+        </div>
+        <div class="state">
+          <div class="state-name" id="ch1-state">Object detected</div>
+          <div class="state-detail" id="ch1-detail">123 ADC counts</div>
+        </div>
+        <div class="outputs">
+          <div class="output">
+            <span class="lamp" id="ch1-sense-lamp"></span>
+            <span id="ch1-sense-text">Sense OFF</span>
+          </div>
+          <div class="output">
+            <span class="lamp" id="ch1-fault-lamp"></span>
+            <span id="ch1-fault-text">Fault OFF</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="channel" data-channel="2">
+        <h2>Channel 2</h2>
+        <div class="controls">
+          <div>
+            <div class="control-row">
+              <label for="ch2-voltage">Input voltage</label>
+              <output class="value" id="ch2-readout">0.80 V</output>
+            </div>
+            <input id="ch2-voltage" type="range" min="0" max="5" value="0.80" step="0.01">
+          </div>
+          <div class="control-row">
+            <label for="ch2-reverse">Reverse / NC DIP closed</label>
+            <input id="ch2-reverse" type="checkbox">
+          </div>
+        </div>
+        <div class="state">
+          <div class="state-name" id="ch2-state">Connected, not sensing</div>
+          <div class="state-detail" id="ch2-detail">655 ADC counts</div>
+        </div>
+        <div class="outputs">
+          <div class="output">
+            <span class="lamp" id="ch2-sense-lamp"></span>
+            <span id="ch2-sense-text">Sense OFF</span>
+          </div>
+          <div class="output">
+            <span class="lamp" id="ch2-fault-lamp"></span>
+            <span id="ch2-fault-text">Fault OFF</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="reference" aria-label="Common fault control">
+      <div class="control-row">
+        <div>
+          <h2>Common Fault LED DIP</h2>
+          <p>Open enables both fault LEDs. Closed masks both fault LEDs, but faults still force sensing outputs OFF.</p>
+        </div>
+        <label>
+          <input id="fault-enabled" type="checkbox" checked>
+          Enabled
+        </label>
+      </div>
+    </section>
+
+    <section class="reference" aria-label="Firmware threshold reference">
+      <h2>Firmware Thresholds</h2>
+      <div class="ranges">
+        <div class="range break">
+          <strong>Break / disconnected</strong>
+          <span>0.00-0.02 V, 0-16 counts</span>
+        </div>
+        <div class="range sense">
+          <strong>Object detected</strong>
+          <span>0.03-0.55 V, 25-450 counts</span>
+        </div>
+        <div class="range connected">
+          <strong>Connected, not sensing</strong>
+          <span>451-1228 counts</span>
+        </div>
+        <div class="range short">
+          <strong>Short circuit</strong>
+          <span>1.50-5.00 V, 1229-4095 counts</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const ADC_MAX = 4095;
+    const VREF = 5.0;
+    const ADC_BREAK_MAX = 16;
+    const ADC_SENSE_MIN = 25;
+    const ADC_SENSE_MAX = 450;
+    const ADC_CONNECTED_MIN = 451;
+    const ADC_CONNECTED_MAX = 1228;
+    const ADC_SHORT_MIN = 1229;
+
+    const channels = [1, 2].map((number) => ({
+      number,
+      voltage: document.getElementById(`ch${number}-voltage`),
+      reverse: document.getElementById(`ch${number}-reverse`),
+      readout: document.getElementById(`ch${number}-readout`),
+      state: document.getElementById(`ch${number}-state`),
+      detail: document.getElementById(`ch${number}-detail`),
+      senseLamp: document.getElementById(`ch${number}-sense-lamp`),
+      senseText: document.getElementById(`ch${number}-sense-text`),
+      faultLamp: document.getElementById(`ch${number}-fault-lamp`),
+      faultText: document.getElementById(`ch${number}-fault-text`)
+    }));
+
+    const faultEnabled = document.getElementById('fault-enabled');
+
+    function voltageToAdc(voltage) {
+      return Math.round((voltage / VREF) * ADC_MAX);
+    }
+
+    function classify(adc) {
+      if (adc <= ADC_BREAK_MAX) {
+        return { name: 'Break / disconnected', fault: 'solid', object: false, connected: false };
+      }
+
+      if (adc >= ADC_SENSE_MIN && adc <= ADC_SENSE_MAX) {
+        return { name: 'Object detected', fault: 'off', object: true, connected: true };
+      }
+
+      if (adc >= ADC_CONNECTED_MIN && adc <= ADC_CONNECTED_MAX) {
+        return { name: 'Connected, not sensing', fault: 'off', object: false, connected: true };
+      }
+
+      if (adc >= ADC_SHORT_MIN) {
+        return { name: 'Short circuit', fault: 'blink', object: false, connected: false };
+      }
+
+      return { name: 'Undefined transition gap', fault: 'off', object: false, connected: false };
+    }
+
+    function setLamp(lamp, mode) {
+      lamp.className = 'lamp';
+
+      if (mode === 'sense-on') {
+        lamp.classList.add('on', 'good');
+      }
+
+      if (mode === 'fault-on') {
+        lamp.classList.add('on', 'bad');
+      }
+
+      if (mode === 'fault-blink') {
+        lamp.classList.add('on', 'bad', 'blink');
+      }
+    }
+
+    function updateChannel(channel) {
+      const voltage = Number(channel.voltage.value);
+      const adc = voltageToAdc(voltage);
+      const state = classify(adc);
+      const reverseMode = channel.reverse.checked;
+      const senseOn = state.fault === 'off' && (
+        state.object ? !reverseMode : state.connected && reverseMode
+      );
+      const visibleFault = faultEnabled.checked ? state.fault : 'off';
+
+      channel.readout.value = `${voltage.toFixed(2)} V`;
+      channel.state.textContent = state.name;
+      channel.detail.textContent = `${adc} ADC counts, ${reverseMode ? 'Reverse / NC' : 'Normal / NO'} mode`;
+
+      setLamp(channel.senseLamp, senseOn ? 'sense-on' : 'off');
+      channel.senseText.textContent = senseOn ? 'Sense ON' : 'Sense OFF';
+
+      if (visibleFault === 'solid') {
+        setLamp(channel.faultLamp, 'fault-on');
+        channel.faultText.textContent = 'Fault solid ON';
+      } else if (visibleFault === 'blink') {
+        setLamp(channel.faultLamp, 'fault-blink');
+        channel.faultText.textContent = 'Fault blinking';
+      } else {
+        setLamp(channel.faultLamp, 'off');
+        channel.faultText.textContent = 'Fault OFF';
+      }
+    }
+
+    function updateAll() {
+      channels.forEach(updateChannel);
+    }
+
+    channels.forEach((channel) => {
+      channel.voltage.addEventListener('input', updateAll);
+      channel.reverse.addEventListener('change', updateAll);
+    });
+
+    faultEnabled.addEventListener('change', updateAll);
+    updateAll();
+  </script>
+</body>
+</html>
